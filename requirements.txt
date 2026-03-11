@@ -1,0 +1,10 @@
+# House Price Prediction with Linear Models
+# DSS5104 Assignment Requirements
+
+
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+xgboost
