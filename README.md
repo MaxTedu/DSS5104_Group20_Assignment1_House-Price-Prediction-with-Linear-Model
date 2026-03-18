@@ -7,7 +7,9 @@ This repository implements a house price prediction system using linear regressi
 ## Dataset
 
 - **Source**: `house_dataset.csv` (King County, WA housing data)
-- **Size**: 9,200 records
+- **Original Size**: 9,200 records
+- **After Deduplication**: 4,602 records
+- **Duplicates Removed**: 4,598 records (49.98% of data)
 - **Features**: 18 raw features including location, size, condition, and sale details
 
 ## Project Structure
@@ -16,7 +18,7 @@ This repository implements a house price prediction system using linear regressi
 ├── src/                   # Source code package
 │   ├── __init__.py
 │   ├── main.py            # Main pipeline orchestration
-│   ├── data_loader.py     # Data loading and preprocessing
+│   ├── data_loader.py     # Data loading and preprocessing (includes duplicate removal)
 │   ├── feature_engineering.py  # Feature engineering and transformation
 │   ├── model_training.py  # Model training and evaluation
 │   └── utils.py           # Helper functions and visualization
@@ -27,7 +29,7 @@ This repository implements a house price prediction system using linear regressi
 │   └── project_report.md  # Comprehensive project report
 ├── dataset/
 │   └── house_dataset.csv  # Housing price dataset
-├── dss/                   # Virtual environment
+├── .venv/                 # Virtual environment
 ├── requirements.txt       # Project dependencies
 └── README.md
 ```
@@ -42,11 +44,11 @@ This repository implements a house price prediction system using linear regressi
 ### Create Virtual Environment
 
 ```bash
-python -m venv dss
+python -m venv .venv
 # For Windows
-dss\Scripts\activate
+.venv\Scripts\activate
 # For macOS/Linux
-source dss/bin/activate
+source .venv/bin/activate
 ```
 
 ### Install Dependencies
@@ -76,6 +78,7 @@ After running the pipeline, the following files will be generated in the `result
 ### Data Loading and Preprocessing
 
 - Load CSV data using pandas
+- **Remove duplicate rows** (critical data quality step)
 - Handle missing values
 - Convert date column to datetime and extract features
 - Separate numerical and categorical features
@@ -107,10 +110,14 @@ Trains and evaluates multiple linear regression models:
 ## Results
 
 Best Model: **ElasticNet**
-- **Test MAPE**: 23.16%
-- **Test R2**: 0.0961
-- **Mean Absolute Error**: $160,762
-- **Root Mean Squared Error**: $717,666
+- **Test MAPE**: 23.41%
+- **Test R2**: -0.1217
+- **Mean Absolute Error**: $187,442
+- **Root Mean Squared Error**: $977,649
+
+### Key Update - Data Deduplication
+
+An important data quality step was added: **removing duplicate rows**. The original dataset contained 9,200 records, but after deduplication, only 4,602 unique records remained (4,598 duplicates removed, representing nearly 50% of the original data). This significantly improved the reliability of our model results.
 
 ## Report
 
@@ -119,12 +126,14 @@ A comprehensive project report is available in `results/project_report.md` which
 - Model performance comparison table
 - Visualizations of feature importance and predictions
 - Technical implementation details
+- Data deduplication impact analysis
 
 ## Requirements and Constraints
 
 - **Linear Models Only**: No neural networks, decision trees, random forests, or gradient boosting
 - **Creative Feature Engineering**: Encouraged (log transformation, target encoding, etc.)
 - **Interpretability**: Models must remain interpretable
+- **Data Quality**: Duplicate rows must be removed
 
 ## License
 

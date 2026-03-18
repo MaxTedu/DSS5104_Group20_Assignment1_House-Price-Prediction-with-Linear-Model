@@ -38,6 +38,12 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     print("Starting preprocessing...")
 
+    # Remove duplicate rows
+    print(f"Duplicate rows before removal: {df.duplicated().sum()}")
+    df = df.drop_duplicates()
+    print(f"Duplicate rows after removal: {df.duplicated().sum()}")
+    print(f"Data shape after removing duplicates: {df.shape}")
+
     # Convert date column to datetime
     df['date'] = pd.to_datetime(df['date'])
 

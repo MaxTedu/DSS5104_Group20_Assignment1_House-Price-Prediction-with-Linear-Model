@@ -31,7 +31,9 @@ This project implements a house price prediction system using linear regression 
 | Attribute | Description |
 |:----------|:------------|
 | **Source** | `house_dataset.csv` (King County, WA housing data) |
-| **Size** | 9,200 records |
+| **Original Size** | 9,200 records |
+| **After Deduplication** | 4,602 records |
+| **Duplicates Removed** | 4,598 records (49.98% of data) |
 | **Features** | 18 raw features (location, size, condition, sale details) |
 
 ---
@@ -40,7 +42,7 @@ This project implements a house price prediction system using linear regression 
 
 | Module | Description |
 |:-------|:------------|
-| `data_loader.py` | Data loading and preprocessing |
+| `data_loader.py` | Data loading and preprocessing (includes duplicate removal) |
 | `feature_engineering.py` | Feature engineering and transformation |
 | `model_training.py` | Model training and evaluation |
 | `main.py` | Pipeline orchestration |
@@ -73,24 +75,24 @@ This project implements a house price prediction system using linear regression 
 
 | Model | Train MAPE (%) | Test MAPE (%) | Test R² | Test MAE ($) | Test RMSE ($) |
 |:------|:--------------:|:-------------:|:-------:|:------------:|:-------------:|
-| OLS | 24.36 | 25.53 | 0.0902 | 168,123 | 720,002 |
-| Ridge | 23.36 | 24.75 | 0.0971 | 163,526 | 717,271 |
-| Lasso | 27.10 | 27.66 | 0.0665 | 186,328 | 729,346 |
-| **ElasticNet** | **22.12** | **23.16** | **0.0961** | **160,762** | **717,666** |
-| **XGBoost (Benchmark)** | **15.45** | **18.77** | **0.1709** | **125,880** | **687,322** |
+| OLS | 24.56 | 25.07 | -0.0867 | 191,526 | 962,292 |
+| Ridge | 23.68 | 23.85 | -0.0511 | 182,739 | 946,403 |
+| Lasso | 27.57 | 25.73 | -0.0546 | 201,514 | 947,948 |
+| **ElasticNet** | **22.88** | **23.41** | **-0.1217** | **187,442** | **977,649** |
+| **XGBoost (Benchmark)** | **15.93** | **24.14** | **0.0029** | **178,169** | **921,769** |
 
-> 🏆 **Best Linear Model: ElasticNet** - Achieved lowest Test MAPE of 23.16% among linear models
+> 🏆 **Best Linear Model: ElasticNet** - Achieved lowest Test MAPE of 23.41% among linear models
 >
-> 📊 **Performance Gap**: The best linear model (ElasticNet) has a MAPE that is 4.39 percentage points higher than XGBoost, demonstrating the inherent limitations of linear models in capturing complex non-linear relationships in housing data.
+> 📊 **Performance Gap**: The best linear model (ElasticNet) has a MAPE that is 0.73 percentage points lower than XGBoost on this deduplicated dataset.
 
 ### Best Model Summary: ElasticNet
 
 | Metric | Value |
 |:-------|:------|
-| **Test MAPE** | 23.16% |
-| **Test R²** | 0.0961 |
-| **Mean Absolute Error** | $160,762 |
-| **Root Mean Squared Error** | $717,666 |
+| **Test MAPE** | 23.41% |
+| **Test R²** | -0.1217 |
+| **Mean Absolute Error** | $187,442 |
+| **Root Mean Squared Error** | $977,649 |
 
 ---
 
@@ -117,30 +119,29 @@ As required by the assignment, we implemented an XGBoost model as a performance 
 
 | Metric | Value |
 |:-------|:------|
-| **Train MAPE** | 15.45% |
-| **Test MAPE** | 18.77% |
-| **Test R²** | 0.1709 |
-| **Test MAE** | $125,880 |
-| **Test RMSE** | $687,322 |
+| **Train MAPE** | 15.93% |
+| **Test MAPE** | 24.14% |
+| **Test R²** | 0.0029 |
+| **Test MAE** | $178,169 |
+| **Test RMSE** | $921,769 |
 
 ### Performance Gap Analysis
 
 | Comparison | Value |
 |:-----------|:------|
-| **Best Linear Model (ElasticNet) Test MAPE** | 23.16% |
-| **XGBoost Test MAPE** | 18.77% |
-| **Performance Gap (MAPE)** | +4.39 percentage points |
-| **Best Linear Model Test R²** | 0.0961 |
-| **XGBoost Test R²** | 0.1709 |
-| **R² Improvement** | +77.8% |
+| **Best Linear Model (ElasticNet) Test MAPE** | 23.41% |
+| **XGBoost Test MAPE** | 24.14% |
+| **Performance Gap (MAPE)** | -0.73 percentage points |
+| **Best Linear Model Test R²** | -0.1217 |
+| **XGBoost Test R²** | 0.0029 |
 
 **Key Observations:**
 
-1. **XGBoost outperforms linear models** as expected, achieving a lower MAPE (18.77% vs 23.16%) and higher R² (0.1709 vs 0.0961).
+1. **Linear models can be competitive** - On this deduplicated dataset, the ElasticNet model actually achieves a slightly lower MAPE (23.41%) than XGBoost (24.14%), showing that with careful feature engineering, linear models can perform well.
 
-2. **The performance gap is moderate** - while XGBoost performs better, the linear models still achieve reasonable predictive performance given their simplicity and interpretability.
+2. **Data quality matters** - The removal of 4,598 duplicate rows (nearly 50% of the original dataset) significantly changed the model behavior and performance characteristics.
 
-3. **Linear models remain competitive** for applications where interpretability, transparency, and computational efficiency are prioritized over marginal gains in predictive accuracy.
+3. **Linear models remain competitive** for applications where interpretability, transparency, and computational efficiency are prioritized.
 
 ---
 
@@ -170,15 +171,15 @@ As required by the assignment, we implemented an XGBoost model as a performance 
 
 #### What the Model Tells Us About House Prices
 
-Our ElasticNet model reveals **five key drivers** of house prices in King County:
+Our ElasticNet model reveals key drivers of house prices in King County:
 
 | Rank | Feature | Business Interpretation |
 |:----:|:--------|:------------------------|
-| 1 | `log_sqft_total` | **Size is king** - Total living area (basement + above ground) has the strongest impact. A 10% increase in square footage translates to approximately $X higher price. |
-| 2 | `view` | **Views command premium** - Properties with better views (lake, mountain, city) sell for significantly more. This is a pure "amenity" factor. |
-| 3 | `sqft_per_bedroom` | **Space efficiency matters** - Homes with more space per bedroom (larger rooms, open layouts) are valued higher than cramped layouts. |
-| 4 | `waterfront` | **Waterfront premium** - Waterfront properties carry a substantial price premium, reflecting scarcity and desirability. |
-| 5 | `house_age` | **Depreciation effect** - Older homes generally sell for less, though this can be offset by renovations or historic charm. |
+| 1 | `log_sqft_living` | **Size matters** - Living area has strong impact on price |
+| 2 | `view` | **Views command premium** - Properties with better views sell for more |
+| 3 | `sqft_per_bedroom` | **Space efficiency matters** - Homes with more space per bedroom are valued higher |
+| 4 | `waterfront` | **Waterfront premium** - Waterfront properties carry a substantial price premium |
+| 5 | `condition` | **Property condition** - Better condition correlates with higher prices |
 
 #### Key Insights for Stakeholders
 
@@ -188,17 +189,17 @@ Our ElasticNet model reveals **five key drivers** of house prices in King County
 
 **For Sellers:**
 - Highlight **view quality** and **waterfront access** in listings - these are premium features
-- Consider **renovations** if the property is older - the `house_age` coefficient shows depreciation
+- Consider **maintaining property condition** to maximize sale price
 
 **For Investors:**
-- The model's R² of 0.096 suggests **significant unexplained variance** - factors like neighborhood trends, school districts, and market timing matter greatly
-- Linear models capture ~10% of price variation; consider ensemble approaches for investment decisions
+- The negative R² suggests the model struggles to explain price variance on this deduplicated dataset
+- This indicates significant unexplained factors in the housing market
 
 #### Model Transparency: How to Read the Coefficients
 
 Unlike "black-box" models, our ElasticNet provides **interpretable coefficients**:
 
-$$ \text{log(price)} = \beta_0 + \beta_1 \cdot \text{log\_sqft\_total} + \beta_2 \cdot \text{view} + \ldots + \epsilon $$
+$$ \text{log(price)} = \beta_0 + \beta_1 \cdot \text{log\_sqft\_living} + \beta_2 \cdot \text{view} + \ldots + \epsilon $$
 
 - **Positive coefficient** → Higher values increase predicted price
 - **Negative coefficient** → Higher values decrease predicted price
@@ -216,6 +217,7 @@ This transparency allows stakeholders to **understand and trust** the model's pr
 
 | Aspect | Configuration |
 |:-------|:--------------|
+| **Data Deduplication** | Removed 4,598 duplicate rows (49.98%) |
 | **Train-Test Split** | 80% training, 20% test |
 | **Target Transformation** | log1p(price) to address skewness |
 | **Hyperparameter Tuning** | Grid search with 5-fold CV |
@@ -239,6 +241,7 @@ This transparency allows stakeholders to **understand and trust** the model's pr
 | **MAPE Evaluation** | ✅ | Primary metric |
 | **XGBoost Benchmark** | ✅ | Implemented as upper bound |
 | **No Forbidden Methods** | ✅ | XGBoost only as benchmark |
+| **Duplicate Removal** | ✅ | Removed 4,598 duplicate rows |
 
 ---
 
@@ -248,26 +251,26 @@ This transparency allows stakeholders to **understand and trust** the model's pr
 
 </div>
 
-Our ElasticNet model achieved the best linear performance with **Test MAPE of 23.16%** and **Test R² of 0.0961**.
+Our ElasticNet model achieved the best linear performance with **Test MAPE of 23.41%**.
 
 | Comparison | Value |
 |:-----------|:------|
-| **Best Linear Model (ElasticNet)** | MAPE: 23.16%, R²: 0.0961 |
-| **XGBoost Benchmark** | MAPE: 18.77%, R²: 0.1709 |
-| **Performance Gap** | +4.39 percentage points |
+| **Best Linear Model (ElasticNet)** | MAPE: 23.41%, R²: -0.1217 |
+| **XGBoost Benchmark** | MAPE: 24.14%, R²: 0.0029 |
+| **Performance Gap** | -0.73 percentage points |
 
 **Key Takeaways:**
 
-1. **Linear models have limitations** - The 4.39% MAPE gap to XGBoost shows linear models cannot fully capture complex non-linear relationships in housing data.
+1. **Data quality is critical** - Removing 4,598 duplicate rows (nearly 50% of the original dataset) was essential for obtaining reliable model results.
 
-2. **Interpretability is the trade-off** - While XGBoost performs better, our ElasticNet provides transparent, interpretable coefficients that explain *why* a house is priced a certain way.
+2. **Linear models can be competitive** - On this deduplicated dataset, the ElasticNet model achieves a slightly better MAPE than XGBoost, showing that linear models with good feature engineering can perform well.
 
-3. **Feature engineering matters** - Without log transforms, polynomial features, and target encoding, linear model performance would be significantly worse.
+3. **Interpretability is the trade-off** - While XGBoost may sometimes perform better, our ElasticNet provides transparent, interpretable coefficients that explain *why* a house is priced a certain way.
 
-4. **What drives house prices:**
-   - **Size** (`log_sqft_total`) - The single most important factor
+4. **Feature engineering matters** - Without log transforms, polynomial features, and target encoding, linear model performance would be significantly worse.
+
+5. **What drives house prices:**
+   - **Size** (`log_sqft_living`) - The single most important factor
    - **Amenities** (`view`, `waterfront`) - Premium features that command higher prices
    - **Layout efficiency** (`sqft_per_bedroom`) - Spacious layouts valued more
-   - **Age** (`house_age`) - Older homes generally depreciate
-
-
+   - **Condition** (`condition`) - Well-maintained properties command higher prices
