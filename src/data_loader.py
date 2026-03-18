@@ -68,6 +68,15 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # Remove price outliers
+    print("Rows before price outlier removal:", len(df))
+    print("Price = 0:", (df['price'] == 0).sum())
+    print("Price > $5M:", (df['price'] > 5000000).sum())
+    
+    # Remove rows with price = 0 or extreme high prices
+    df = df[(df['price'] > 0) & (df['price'] <= 5000000)]
+    print("Rows after price outlier removal:", len(df))
+
     print("Preprocessing complete!")
     return df
 

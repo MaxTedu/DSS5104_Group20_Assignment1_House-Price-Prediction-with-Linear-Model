@@ -199,23 +199,40 @@ def train_xgboost_baseline(X_train: pd.DataFrame, y_train: pd.Series,
     print("Training XGBOOST Baseline Model...")
     print("=" * 60)
 
-    # Create XGBoost regressor with reasonable default parameters
-    xgb_model = XGBRegressor(
-        n_estimators=100,
-        max_depth=6,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-        n_jobs=-1
+    # Create XGBoost regressor with hyperparameter tuning
+    xgb = XGBRegressor(random_state=42, n_jobs=-1)
+
+    # Parameter grid for hyperparameter tuning (simplified for speed)
+    param_grid = {
+        'n_estimators': [100, 200],
+        'max_depth': [4, 6, 8],
+        'learning_rate': [0.05, 0.1],
+        'subsample': [0.8],
+        'colsample_bytree': [0.8],
+        'min_child_weight': [1, 3]
+    }
+
+    # Grid search with 5-fold CV
+    grid_search = GridSearchCV(
+        xgb,
+        param_grid,
+        cv=5,
+        scoring='neg_mean_absolute_error',
+        n_jobs=-1,
+        verbose=1
     )
 
-    # Fit the model
-    xgb_model.fit(X_train, y_train)
+    grid_search.fit(X_train, y_train)
+    best_model = grid_search.best_estimator_
+    best_params = grid_search.best_params_
+    cv_score = -grid_search.best_score_
+
+    print(f"Best parameters: {best_params}")
+    print(f"Best CV MAE: {cv_score:.0f}")
 
     # Predictions
-    y_pred_train = xgb_model.predict(X_train)
-    y_pred_test = xgb_model.predict(X_test)
+    y_pred_train = best_model.predict(X_train)
+    y_pred_test = best_model.predict(X_test)
 
     # Inverse log transform if needed
     if log_transform_target:
@@ -237,22 +254,9 @@ def train_xgboost_baseline(X_train: pd.DataFrame, y_train: pd.Series,
     test_rmse = np.sqrt(test_mse)
     test_r2 = r2_score(y_test_inv, y_pred_test_inv)
 
-    # Cross-validation score
-    cv_scores = cross_val_score(
-        xgb_model, X_train, y_train, cv=5,
-        scoring='neg_mean_absolute_error', n_jobs=-1
-    )
-    cv_score = -cv_scores.mean()
-
     results = {
-        'model': xgb_model,
-        'best_params': {
-            'n_estimators': 100,
-            'max_depth': 6,
-            'learning_rate': 0.1,
-            'subsample': 0.8,
-            'colsample_bytree': 0.8
-        },
+        'model': best_model,
+        'best_params': best_params,
         'cv_score': cv_score,
         'train_mape': train_mape,
         'test_mape': test_mape,

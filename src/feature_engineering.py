@@ -128,11 +128,15 @@ def encode_categorical_features(df: pd.DataFrame, target: pd.Series = None,
     if cat_cols is None:
         cat_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
 
-    # One-hot encoding for categorical features with few unique values
+    # Separate location features from other categorical features
+    location_cols = ['city', 'statezip']
+    other_cat_cols = [col for col in cat_cols if col not in location_cols]
+
+    # One-hot encoding for non-location categorical features with few unique values
     onehot_cols = []
-    for col in cat_cols:
+    for col in other_cat_cols:
         unique_vals = df[col].nunique()
-        if unique_vals < 50:  # For columns with <= 50 unique values
+        if unique_vals < 10:  # Only one-hot encode for very few unique values
             onehot_cols.append(col)
 
     if onehot_cols:
@@ -146,20 +150,20 @@ def encode_categorical_features(df: pd.DataFrame, target: pd.Series = None,
         df = pd.concat([df, onehot_df], axis=1)
         df = df.drop(onehot_cols, axis=1)
 
-    # Frequency encoding for other categorical features
-    freq_cols = [col for col in cat_cols if col not in onehot_cols]
-    for col in freq_cols:
-        if col in df.columns:
-            freq_encoding = df[col].value_counts(normalize=True)
-            df[f'{col}_freq'] = df[col].map(freq_encoding)
-
-    # Target encoding for location-based features (with cross-validation)
+    # Target encoding for location-based features (with cross-validation) - MOST IMPORTANT!
     if target is not None:
         target_encode_cols = ['city', 'statezip']
         target_encode_cols = [col for col in target_encode_cols if col in df.columns]
 
         for col in target_encode_cols:
             df[f'{col}_target_encoded'] = target_encode(df[col], target)
+
+    # Frequency encoding for remaining categorical features
+    remaining_cat_cols = [col for col in cat_cols if col not in onehot_cols]
+    for col in remaining_cat_cols:
+        if col in df.columns:
+            freq_encoding = df[col].value_counts(normalize=True)
+            df[f'{col}_freq'] = df[col].map(freq_encoding)
 
     # Drop original categorical columns
     df = df.drop([col for col in cat_cols if col in df.columns], axis=1)
