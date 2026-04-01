@@ -144,12 +144,12 @@ def save_results(results: Dict[str, Dict[str, Any]], file_path: str = 'results/m
     for model_name, result in results.items():
         data.append({
             'model': model_name,
-            'train_mape': result['train_mape'],
-            'test_mape': result['test_mape'],
-            'test_mae': result['test_mae'],
-            'test_rmse': result['test_rmse'],
-            'test_r2': result['test_r2'],
-            'cv_score': result['cv_score']
+            'train_mape': result.get('train_mape', None),
+            'test_mape': result.get('test_mape', None),
+            'test_mae': result.get('test_mae', None),
+            'test_rmse': result.get('test_rmse', None),
+            'test_r2': result.get('test_r2', None),
+            'cv_score': result.get('cv_score', None)
         })
 
     df = pd.DataFrame(data)

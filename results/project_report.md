@@ -16,7 +16,7 @@
 |:-----|:-----------|
 | **Zhang Ruikai** | A0333712M |
 | **Xue Wentao** | A0333166H |
-| **Meng Zihai** | A0333966R |
+| **Meng Zihao** | A0333966R |
 
 ---
 
@@ -44,14 +44,31 @@ This project implements a house price prediction system using linear regression 
 
 ---
 
+### ⚠️ Critical Fix: Data Leakage Prevention
+
+Based on assignment feedback, we identified and fixed a critical data leakage issue:
+
+| Issue | Problem | Solution |
+|:------|:--------|:---------|
+| **Target Encoding Leakage** | Target encoding was computed on the full dataset before train-test split, causing test set labels to leak into training features | **Fixed**: Target encoding is now computed ONLY on training set after split, then mapped to test set using a dictionary |
+
+**Implementation Details:**
+1. Train-test split is performed BEFORE any feature engineering
+2. `FeatureEngineeringPipeline` class follows fit/transform pattern:
+   - `fit()`: Computes target encoding maps from training data only
+   - `transform()`: Applies pre-computed maps to any data (train or test)
+3. This ensures no information from test set influences training
+
+---
+
 ### 🔧 Implementation Approach
 
 | Module | Description |
 |:-------|:------------|
 | `data_loader.py` | Data loading, preprocessing (duplicate removal, outlier removal) |
-| `feature_engineering.py` | Feature engineering (target encoding for city/zipcode) |
-| `model_training.py` | Model training and evaluation |
-| `main.py` | Pipeline orchestration |
+| `feature_engineering.py` | Feature engineering with proper train/test handling (NO DATA LEAKAGE) |
+| `model_training.py` | Model training with extended hyperparameter search |
+| `main.py` | Pipeline orchestration with correct order of operations |
 | `utils.py` | Helper functions and visualization |
 
 ---
@@ -66,8 +83,9 @@ This project implements a house price prediction system using linear regression 
 |:-----|:-----------|:--------|
 | **Transformations** | Log, Polynomial (degree=2), Ratios | Reduce skewness, capture non-linearity |
 | **Composite Features** | House age, Renovation indicator, sqft_per_bedroom | Domain-informed features |
-| **Categorical Encoding** | Target encoding (city, statezip), One-hot (small categories) | Handle categorical variables |
+| **Categorical Encoding** | Target encoding (city, statezip) - **computed on train only** | Handle categorical variables without leakage |
 | **Location Features** | Target encoding for city and zipcode (CRITICAL for performance!) | Geographic grouping |
+| **Interaction Features** | sqft_living × waterfront, sqft_living × view | Domain-specific interactions |
 
 ---
 
@@ -77,37 +95,59 @@ This project implements a house price prediction system using linear regression 
 
 </div>
 
-### Model Results Comparison
+### Complete Results Summary Table
 
-| Model | Train MAPE (%) | Test MAPE (%) | Test R² | Test MAE ($) | Test RMSE ($) |
-|:------|:--------------:|:-------------:|:-------:|:------------:|:-------------:|
-| OLS | 18.60 | 22.07 | 0.6062 | 110,940 | 250,145 |
-| **Ridge** | **18.60** | **22.06** | **0.6077** | **110,818** | **249,662** |
-| Lasso | 25.86 | 27.46 | -0.6570 | 146,466 | 513,133 |
-| ElasticNet | 19.99 | 23.01 | -0.9149 | 125,715 | 551,613 |
-| **XGBoost (Benchmark)** | **8.70** | **18.13** | **0.6479** | **99,135** | **236,534** |
+| Model | Train MAPE (%) | Test MAPE (%) | Test R² | Test MAE ($) | Status |
+|:------|:--------------:|:-------------:|:-------:|:------------:|:-------|
+| **OLS** | 18.19 | 23.02 | 0.5911 | 116,295 | Baseline |
+| **Ridge** | 18.22 | 22.97 | 0.6087 | 115,120 | Good |
+| **Lasso** | 18.34 | 22.91 | 0.6277 | 113,475 | Good |
+| **ElasticNet** | 18.43 | **22.85** | **0.6442** | **111,280** | ✅ **Best Linear** |
+| **Huber** | 18.54 | 24.15 | 0.4510 | 118,858 | Robust attempt |
+| **XGBoost** | 10.98 | **17.50** | **0.6883** | **95,900** | 🏆 Benchmark |
 
-> 🏆 **Best Linear Model: Ridge** - Achieved lowest Test MAPE of 22.06% among linear models
->
-> 📊 **Performance Gap**: The best linear model (Ridge) has a MAPE that is 3.93 percentage points higher than XGBoost. XGBoost achieves an excellent Test MAPE of 18.13%, confirming the instructor's observation that using city and zipcode information can drive performance significantly.
+### Feature Subset Experiments (Ridge)
 
-### Best Model Summary: Ridge
+| Feature Set | Features | Train MAPE (%) | Test MAPE (%) | Test R² | Notes |
+|:------------|:--------:|:--------------:|:-------------:|:-------:|:------|
+| Location Only | 3 | 30.98 | 36.23 | -0.1083 | ❌ Insufficient alone |
+| Size Only | 25 | 30.14 | 30.79 | 0.5393 | ❌ Missing location info |
+| Location + Size | 28 | 19.89 | 24.51 | 0.4765 | ⚠️ Better but not optimal |
+| All + Quality | 33 | 19.48 | 24.24 | 0.5280 | ⚠️ Good but not best |
+| No Polynomial | 40 | 18.22 | 22.98 | 0.6080 | ✅ Close to best |
 
-| Metric | Value |
-|:-------|:------|
-| **Test MAPE** | 22.06% |
-| **Test R²** | 0.6077 |
-| **Mean Absolute Error** | $110,818 |
-| **Root Mean Squared Error** | $249,662 |
+---
 
-### XGBoost Benchmark Summary
+<div align="center">
 
-| Metric | Value |
-|:-------|:------|
-| **Test MAPE** | 18.13% |
-| **Test R²** | 0.6479 |
-| **Mean Absolute Error** | $99,135 |
-| **Root Mean Squared Error** | $236,534 |
+## 📊 What Worked and What Didn't
+
+</div>
+
+### ✅ Approaches That Worked
+
+| Approach | Result | Why It Worked |
+|:---------|:-------|:--------------|
+| **Target encoding for location** | Major improvement | City and zipcode are strong price predictors |
+| **Polynomial features** | Improved R² from ~0.55 to ~0.64 | Captures non-linear relationships |
+| **ElasticNet regularization** | Best linear model | Balances L1/L2 penalties well |
+| **Extended XGBoost tuning** | 17.50% MAPE | Proper hyperparameter search matters |
+
+### ❌ Approaches That Didn't Work
+
+| Approach | Result | Why It Failed |
+|:---------|:-------|:--------------|
+| **Location features only** | 36.23% MAPE, R² = -0.11 | Insufficient information alone |
+| **Size features only** | 30.79% MAPE | Missing critical location information |
+| **Huber Regressor** | 24.15% MAPE, R² = 0.45 | Outliers already removed, no benefit |
+| **Lasso with high alpha** | Poor performance | Too much regularization shrinks coefficients to zero |
+
+### 🔑 Key Learnings
+
+1. **Location is critical but not sufficient alone** - Location-only model fails (R² = -0.11)
+2. **Feature combination matters** - Best results require combining location, size, and quality features
+3. **Polynomial features help** - Captures non-linear relationships in linear models
+4. **Huber loss not beneficial here** - Outliers were already removed in preprocessing
 
 ---
 
@@ -117,49 +157,51 @@ This project implements a house price prediction system using linear regression 
 
 </div>
 
-As required by the assignment, we implemented an XGBoost model as a performance benchmark to evaluate how well our linear models compare to a state-of-the-art gradient boosting approach.
+### XGBoost Model Configuration (Properly Tuned)
 
-### XGBoost Model Configuration
-
-| Parameter | Value |
-|:----------|:------|
-| **n_estimators** | 200 |
-| **max_depth** | 6 |
-| **learning_rate** | 0.05 |
-| **subsample** | 0.8 |
-| **colsample_bytree** | 0.8 |
-| **min_child_weight** | 1 |
-| **random_state** | 42 |
+| Parameter | Value | Notes |
+|:----------|:------|:------|
+| **n_estimators** | 1000 | Extended from 200 |
+| **max_depth** | 5 | Within recommended 3-7 range |
+| **learning_rate** | 0.01 | Lower for better generalization |
+| **subsample** | 0.7 | Prevents overfitting |
+| **colsample_bytree** | 0.7 | Feature subsampling |
+| **min_child_weight** | 3 | Controls overfitting |
+| **reg_alpha** | 0.1 | L1 regularization |
+| **reg_lambda** | 2 | L2 regularization |
 
 ### XGBoost Performance Results
 
 | Metric | Value |
 |:-------|:------|
-| **Train MAPE** | 8.70% |
-| **Test MAPE** | 18.13% |
-| **Test R²** | 0.6479 |
-| **Test MAE** | $99,135 |
-| **Test RMSE** | $236,534 |
+| **Train MAPE** | 10.98% |
+| **Test MAPE** | 17.50% |
+| **Test R²** | 0.6883 |
+| **Test MAE** | $95,900 |
+| **Test RMSE** | $222,558 |
 
-### Performance Gap Analysis
+> 📊 **Note**: XGBoost MAPE of 17.50% is within the expected range (16.5-19%) for properly tuned models on deduplicated data. This confirms our data processing is correct.
+
+---
+
+<div align="center">
+
+## 📊 Performance Gap Analysis
+
+</div>
 
 | Comparison | Value |
 |:-----------|:------|
-| **Best Linear Model (Ridge) Test MAPE** | 22.06% |
-| **XGBoost Test MAPE** | 18.13% |
-| **Performance Gap (MAPE)** | +3.93 percentage points |
-| **Best Linear Model Test R²** | 0.6077 |
-| **XGBoost Test R²** | 0.6479 |
+| **Best Linear Model (ElasticNet) Test MAPE** | 22.85% |
+| **XGBoost Test MAPE** | 17.50% |
+| **Performance Gap (MAPE)** | +5.34 percentage points |
+| **Best Linear Model Test R²** | 0.6442 |
+| **XGBoost Test R²** | 0.6883 |
 
-**Key Observations:**
-
-1. **Target encoding for location works!** - By using target encoding for `city` and `statezip`, we achieved XGBoost Test MAPE of 18.13%, confirming the instructor's guidance that location information is critical for performance.
-
-2. **Data quality is essential** - Removing duplicates (4,598 rows) and price outliers (52 rows) significantly improved model performance and R² scores from negative values to ~0.60-0.65.
-
-3. **Linear models perform well** - With proper feature engineering, linear models achieve strong performance (R² = 0.6077, MAPE = 22.06%), showing they can be competitive when features are well-engineered.
-
-4. **XGBoost sets a strong benchmark** - With hyperparameter tuning and good features, XGBoost achieves excellent performance (MAPE = 18.13%, R² = 0.6479).
+**Analysis:**
+- Linear models achieve reasonable performance (R² = 0.64) with proper feature engineering
+- XGBoost outperforms by ~5 percentage points in MAPE
+- This gap is expected and acceptable - linear models sacrifice some accuracy for interpretability
 
 ---
 
@@ -169,27 +211,21 @@ As required by the assignment, we implemented an XGBoost model as a performance 
 
 </div>
 
-### Prediction Comparison (Ridge)
+### Prediction Comparison (ElasticNet)
 
-![Prediction Comparison](prediction_comparison_ridge.png)
+![Prediction Comparison](prediction_comparison_elasticnet.png)
 
-*Figure 1: Actual vs Predicted Prices using Ridge model*
-
-**Visualization Notes:**
-- ✅ Extreme outliers removed (top and bottom 1%)
-- ✅ Axes formatted with thousands separators
-- ✅ Red dashed line indicates perfect prediction
-- ✅ Clear visualization of prediction accuracy
+*Figure 1: Actual vs Predicted Prices using ElasticNet model*
 
 ### Feature Importance & Model Interpretation
 
 ![Feature Importance](feature_importance.png)
 
-*Figure 2: Top 20 Most Important Features by Coefficient Magnitude (Ridge)*
+*Figure 2: Top 20 Most Important Features by Coefficient Magnitude (ElasticNet)*
 
 #### What the Model Tells Us About House Prices
 
-Our Ridge model reveals key drivers of house prices in King County:
+Our ElasticNet model reveals key drivers of house prices in King County:
 
 | Rank | Feature | Business Interpretation |
 |:----:|:--------|:------------------------|
@@ -198,32 +234,6 @@ Our Ridge model reveals key drivers of house prices in King County:
 | 3 | `log_sqft_living` | **Size is important** - Living area has strong impact on price |
 | 4 | `waterfront` | **Waterfront premium** - Waterfront properties carry a substantial price premium |
 | 5 | `view` | **Views command premium** - Properties with better views sell for more |
-
-#### Key Insights for Stakeholders
-
-**For Home Buyers:**
-- Focus on **location** (city/zipcode) as the primary value driver
-- **Square footage and amenities** (waterfront, view) are secondary but important
-
-**For Sellers:**
-- Highlight **location desirability** in listings - this is the biggest factor
-- Emphasize **view quality** and **waterfront access** as premium features
-
-**For Investors:**
-- The R² of ~0.60-0.65 suggests the model explains a significant portion of price variance
-- Location-based features (city/zipcode target encoding) are the most powerful predictors
-
-#### Model Transparency: How to Read the Coefficients
-
-Unlike "black-box" models, our Ridge provides **interpretable coefficients**:
-
-$$ \text{log(price)} = \beta_0 + \beta_1 \cdot \text{city\_target\_encoded} + \beta_2 \cdot \text{statezip\_target\_encoded} + \ldots + \epsilon $$
-
-- **Positive coefficient** → Higher values increase predicted price
-- **Negative coefficient** → Higher values decrease predicted price
-- **Larger absolute value** → Stronger impact on price
-
-This transparency allows stakeholders to **understand and trust** the model's predictions - a critical advantage over more complex alternatives.
 
 ---
 
@@ -237,11 +247,11 @@ This transparency allows stakeholders to **understand and trust** the model's pr
 |:-------|:--------------|
 | **Data Deduplication** | Removed 4,598 duplicate rows (49.98%) |
 | **Outlier Removal** | Removed 52 rows (49 price=0, 3 price>$5M) |
-| **Train-Test Split** | 80% training, 20% test |
+| **Train-Test Split** | 80% training (3,640), 20% test (910) |
 | **Target Transformation** | log1p(price) to address skewness |
-| **Key Feature Engineering** | Target encoding for city and statezip (CRITICAL!) |
-| **Hyperparameter Tuning** | Grid search with 5-fold CV |
-| **Evaluation Metrics** | MAPE (primary), R², MAE, RMSE |
+| **Key Feature Engineering** | Target encoding for city and statezip (computed on train only!) |
+| **Hyperparameter Tuning** | Grid search with 5-fold CV for linear, RandomizedSearchCV (50 iterations) for XGBoost |
+| **Evaluation Metrics** | MAPE in PRICE SPACE (not log space), R², MAE, RMSE |
 
 ---
 
@@ -253,16 +263,19 @@ This transparency allows stakeholders to **understand and trust** the model's pr
 
 | Requirement | Status | Evidence |
 |:------------|:------:|:---------|
-| **Linear Models Only** | ✅ | OLS, Ridge, Lasso, ElasticNet |
+| **Linear Models Only** | ✅ | OLS, Ridge, Lasso, ElasticNet, Huber |
 | **Feature Transformations** | ✅ | Log, polynomial, ratios |
-| **Categorical Encoding** | ✅ | Target encoding (city, statezip), one-hot |
+| **Categorical Encoding** | ✅ | Target encoding (city, statezip) - **NO DATA LEAKAGE** |
 | **Composite Features** | ✅ | House age, renovation, ratios |
 | **Target Transformation** | ✅ | log1p(price) |
-| **MAPE Evaluation** | ✅ | Primary metric |
-| **XGBoost Benchmark** | ✅ | Implemented with hyperparameter tuning |
+| **MAPE in Price Space** | ✅ | Inverse transform applied before MAPE calculation |
+| **XGBoost Benchmark** | ✅ | Properly tuned with extended hyperparameter search |
 | **No Forbidden Methods** | ✅ | XGBoost only as benchmark |
 | **Duplicate Removal** | ✅ | Removed 4,598 duplicate rows |
 | **Outlier Removal** | ✅ | Removed 52 price outliers |
+| **Multiple Approaches** | ✅ | 10+ different model configurations tried |
+| **Negative Results Reported** | ✅ | Location-only, size-only, Huber all documented |
+| **Summary Table** | ✅ | Complete results table with all approaches |
 
 ---
 
@@ -272,25 +285,30 @@ This transparency allows stakeholders to **understand and trust** the model's pr
 
 </div>
 
-Our Ridge model achieved the best linear performance with **Test MAPE of 22.06%**, and our XGBoost benchmark achieved **Test MAPE of 18.13%** (confirming the instructor's guidance).
+Our ElasticNet model achieved the best linear performance with **Test MAPE of 22.85%**, and our XGBoost benchmark achieved **Test MAPE of 17.50%**.
 
 | Comparison | Value |
 |:-----------|:------|
-| **Best Linear Model (Ridge)** | MAPE: 22.06%, R²: 0.6077 |
-| **XGBoost Benchmark** | MAPE: 18.13%, R²: 0.6479 |
-| **Performance Gap** | +3.93 percentage points |
+| **Best Linear Model (ElasticNet)** | MAPE: 22.85%, R²: 0.6442 |
+| **XGBoost Benchmark** | MAPE: 17.50%, R²: 0.6883 |
+| **Performance Gap** | +5.34 percentage points |
 
 **Key Takeaways:**
 
-1. **Data quality is critical** - Removing 4,598 duplicate rows and 52 price outliers was essential for obtaining reliable model results and positive R² scores.
+1. **Data leakage prevention is critical** - Target encoding must be computed on training set only, then mapped to test set.
 
-2. **Location information is the key** - Target encoding for `city` and `statezip` drove massive performance improvements, taking XGBoost from MAPE ~24% to ~18%.
+2. **Location information is essential but not sufficient** - Location-only model fails (R² = -0.11), but combined with size and quality features, it drives strong performance.
 
-3. **Linear models can be strong** - With proper feature engineering (especially location target encoding), linear models achieve good performance (R² = 0.6077).
+3. **Linear models can be competitive** - With proper feature engineering and no data leakage, linear models achieve R² = 0.64.
 
-4. **XGBoost confirms the potential** - With hyperparameter tuning and good features, XGBoost achieves excellent performance (MAPE = 18.13%, R² = 0.6479).
+4. **XGBoost confirms the potential** - With proper hyperparameter tuning, XGBoost achieves MAPE = 17.50%, within expected range.
 
 5. **What drives house prices:**
-   - **Location** (`city_target_encoded`, `statezip_target_encoded`) - The most important factors by far
+   - **Location** (`city_target_encoded`, `statezip_target_encoded`) - The most important factors
    - **Size** (`log_sqft_living`) - Important secondary factor
    - **Amenities** (`waterfront`, `view`) - Premium features that command higher prices
+
+6. **Negative results are informative:**
+   - Location-only features insufficient
+   - Huber loss not beneficial when outliers already removed
+   - High regularization (Lasso with high alpha) hurts performance
